@@ -1,0 +1,1260 @@
+-- REGULI GENERALE:
+-- 0 cel mai semnificativ bit
+-- declaratiile: in ordine crescatoare (0 to n)
+
+-- Cristi si Miruna (continuarea cu arhitectura la final)
+library IEEE;
+
+use IEEE.STD_LOGIC_1164.all;
+
+use IEEE.STD_LOGIC_UNSIGNED.all;
+
+use IEEE.NUMERIC_STD.all;
+entity ATM is
+	port (
+		B0_int_card: in std_logic;
+		B1_ENTER: in std_logic;
+		SW: std_logic_vector(0 to 8);
+		--	SW(0) cod : in std_logic;
+		--	SW(1) cod : in std_logic;
+		--	SW(2) pin : in std_logic;
+		--	SW(3) pin : in std_logic;
+		--	SW(4) pin : in std_logic;
+		--	SW(5) pin : in std_logic;
+		--	SW(6) op : in std_logic;
+		--	SW(7) op : in std_logic;
+			-- "00" Interogare sold
+			-- "01" Retragere card
+			-- "10" Depunere numerar
+		    -- "11" Retragere numarar 
+		--	SW(8) suma : in std_logic;
+		
+		B2_CONFIRM: in std_logic;
+		CLK: in std_logic;
+		
+		LD0_card_introd : out std_logic;
+		LD1_pin_gresit : out std_logic;
+		LD2_interogare : out std_logic;
+		LD3_depunere : out std_logic;
+		LD4_retragere : out std_logic;
+	  	LD5_suma_max_dep : out std_logic;
+		LD6_sold_insuf : out std_logic;
+		
+		AN : out std_logic_vector(0 to 3);
+		CAT : out std_logic_vector(0 to 6)
+	);
+end entity;
+
+
+-- 1. Cristi
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+entity MEMORIE_SOLD	is
+	port (
+			--CLK: in std_logic;
+			A_RAM: in std_logic_vector(0 to 1);
+			WE: in std_logic;
+			I_RAM: in std_logic_vector(0 to 15);
+			CS_RAM: in std_logic;
+			D_RAM: out std_logic_vector(0 to 15)
+		 );
+end entity;
+
+architecture arh_MEMORIE_SOLD of MEMORIE_SOLD is			 
+type MEMORIE is array(0 to 3) of std_logic_vector(0 to 15);
+
+signal M: MEMORIE :=("0001000001010000", "0000000100100000", "0000011101010101", "0000000001100000");
+-- solduri initiale:	 1050 euro			  120 euro		      755 euro	           60 euro
+
+begin
+	process (A_RAM, WE, I_RAM, CS_RAM)
+	begin
+		if(CS_RAM = '1') then
+			--if(CLK'event and CLK = '1') then
+				if(WE = '0') then	-- CITESTE DE LA ARESA A_RAM
+					case A_RAM is
+						when "00" => D_RAM <= M(0);
+						when "01" => D_RAM <= M(1);
+						when "10" => D_RAM <= M(2);
+						when "11" => D_RAM <= M(3);
+						when others => NULL;
+					end case;
+				elsif(WE = '1') then	-- SCRIE LA ADRESA A_RAM soldul I_RAM
+					case A_RAM is
+						when "00" => M(0) <= I_RAM;
+						when "01" => M(1) <= I_RAM;
+						when "10" => M(2) <= I_RAM;
+						when "11" => M(3) <= I_RAM;
+						when others => NULL;
+					end case;
+				end if;
+			end if;
+	end process;
+end architecture;
+
+-- 2. Cristi
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+entity MEMORIE_PIN is
+	port (
+			A_ROM: in std_logic_vector(0 to 1);
+			CS_ROM: in std_logic;
+			D_ROM: out std_logic_vector(0 to 3)
+		  );
+end entity;
+
+architecture arh_MEMORIE_PIN of MEMORIE_PIN is
+type MEMORIE is array(0 to 3) of std_logic_vector(0 to 3);
+
+signal M: MEMORIE :=("1101", "0101", "1001", "0011");
+-- pin-ul nr. card:    00	   01	   10	   11
+
+begin 
+	process (A_ROM, CS_ROM)
+	begin
+		if(CS_ROM = '1') then
+			case A_ROM is
+				when "00" => D_ROM <= M(0);
+				when "01" => D_ROM <= M(1);
+				when "10" => D_ROM <= M(2);
+				when "11" => D_ROM <= M(3);
+				when others => NULL;
+			end case;
+		end if;
+	end process;
+end architecture; 
+
+
+-- 3. Miruna
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_arith.all;
+use ieee.std_logic_unsigned.all;
+
+entity COMPARATOR_4B is
+	port (
+		A, B : in std_logic_vector(0 to 3);
+		clk, en : in std_logic;
+		mic, mare, egal : out std_logic
+	);
+end entity;
+
+architecture arh_comp4 of COMPARATOR_4B is
+begin
+	process (clk, en) 
+	begin
+		if (en = '1' and clk'EVENT and clk = '1') then 
+			if (A > B) then
+				mare <= '1';
+				egal <= '0';
+				mic <= '0';
+			end if;
+			if (A = B) then
+				egal <= '1';
+				mare <= '0';
+				mic <= '0';
+			end if;
+			if (A < B) then
+				mic <= '1';
+				mare <= '0';
+				egal <= '0';
+			end if; 
+		end if;
+	end process;
+end architecture; 
+
+-- 4. Cristi
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity DMUX_1_2 is
+	
+	port (
+			x: in std_logic_vector(0 to 15);
+			s: in std_logic;
+			y0: out std_logic_vector(0 to 15);
+			y1: out std_logic_vector(0 to 15));	  
+end entity;
+
+architecture arh_DMUX_1_2 of DMUX_1_2	is 
+begin
+	process(x, s)
+	begin
+		if(s = '0') then
+			y0 <= x;
+			y1 <= "ZZZZZZZZZZZZZZZZ";
+		elsif(s = '1') then
+			Y0 <= "ZZZZZZZZZZZZZZZZ";
+			y1 <= x;
+		end if;
+	end process;
+end architecture; 
+
+
+-- 5. Miruna
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity DMUX_1_4 is
+	port (
+			x: in std_logic;
+			s: in std_logic_vector(0 to 1);
+			EN: in std_logic;
+			y0: out std_logic;
+			y1: out std_logic;
+			y2: out std_logic;
+			y3: out std_logic
+		 );	  
+end entity;
+
+architecture arh_DMUX_1_4 of DMUX_1_4 is 
+begin
+	process(x, s)
+	begin
+		if(EN = '1') then
+			if(s = "00") then
+				y0 <= x;
+				y1 <= 'Z';
+				y2 <= 'Z';
+				y3 <= 'Z';
+			elsif(s = "01") then
+				y0 <= 'Z';
+				y1 <= x;
+				y2 <= 'Z';
+				y3 <= 'Z'; 
+			elsif(s = "10") then
+				y0 <= 'Z';
+				y1 <= 'Z';
+				y2 <= x;
+				y3 <= 'Z'; 
+			elsif(s = "11")	then
+				y0 <= 'Z';
+				y1 <= 'Z';
+				y2 <= 'Z';
+				y3 <= x;
+			end if;
+		elsif(EN = '0') then
+			y0 <= 'Z';
+			y1 <= 'Z';
+			y2 <= 'Z';
+			y3 <= 'Z';
+		end if;
+	end process;
+end architecture;
+
+-- 6. Miruna si Cristi
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+entity BCD_7SEGM is
+	port(
+			CLK: in STD_LOGIC;
+			s: in std_logic_vector(0 to 1);
+			sel: in std_logic_vector(0 to 1);
+			x:  in STD_LOGIC_VECTOR(0 to 15);
+			a_to_g: out STD_LOGIC_VECTOR(0 to 6);
+			an: out STD_LOGIC_VECTOR(0 to 3)
+		);
+end entity;
+
+architecture arh_BCD_7SEGM of BCD_7SEGM is
+signal digit: STD_LOGIC_VECTOR(0 to 3);
+signal clkdiv: STD_LOGIC_VECTOR(0 to 18);
+
+
+begin
+
+	process(s, x)
+	begin
+		case s is
+			when "00" => digit <= x(12 to 15);
+			an(0) <= '1';
+			an(1) <= '0';
+			an(2) <= '0';
+			an(3) <= '0';
+			when "01" => digit <= x(8 to 11);
+			an(0) <= '0';
+			an(1) <= '1';
+			an(2) <= '0';
+			an(3) <= '0';
+			when "10" => digit <= x(4 to 7);
+			an(0) <= '0';
+			an(1) <= '0';
+			an(2) <= '1';
+			an(3) <= '0';
+			when others => digit <= x(0 to 3);
+			an(0) <= '0';
+			an(1) <= '0';
+			an(2) <= '1';
+			an(3) <= '0';
+		end case;
+		
+	end process;
+	
+	process(digit)
+	begin
+		case digit is
+			when "0000"=> a_to_g <="0000001";  -- '0'
+			when "0001"=> a_to_g <="1001111";  -- '1'
+			when "0010"=> a_to_g  <="0010010";  -- '2'
+			when "0011"=> a_to_g  <="0000110";  -- '3'
+			when "0100"=> a_to_g  <="1001100";  -- '4' 
+			when "0101"=> a_to_g  <="0100100";  -- '5'
+			when "0110"=> a_to_g  <="0100000";  -- '6'
+			when "0111"=> a_to_g  <="0001111";  -- '7'
+			when "1000"=> a_to_g  <="0000000";  -- '8'
+			when "1001"=> a_to_g  <="0000100";  -- '9'
+			when others=> a_to_g  <="1111111"; 
+		end case;
+	end process;
+
+
+	process(clk)
+	begin
+		if clk'event and clk = '1' then
+			clkdiv <= clkdiv + 1;
+		end if;
+	end process;
+	
+end architecture; 
+
+-- 7. Cristi si Miruna
+library IEEE;
+use IEEE.STD_LOGIC_1164.all;
+use IEEE.STD_LOGIC_UNSIGNED.all;
+use IEEE.NUMERIC_STD.all;
+entity NUMARATOR_SUMA is
+	port (
+		SW : in std_logic;
+		ENTER : in std_logic;
+		clk : in std_logic;
+		Mode : in std_logic;
+		y : out std_logic_vector(0 to 15)
+	);
+end entity;
+
+architecture arh_NUMARATOR_SUMA of NUMARATOR_SUMA is
+	signal shift : natural := 0;
+	signal c : std_logic_vector(0 to 15) := "0000000000000000";
+	signal x : std_logic := '0';
+
+begin
+	x <= '1';
+	Numarare : process (shift, sw,MODE,enter, clk)
+	begin	
+		if (mode='1') then
+		if (sw = '1'  and enter='0' AND  CLK'EVENT AND CLK='1') then 
+			case shift is
+				when 0 => 
+					if (c(12 to 15) = "0000") then
+						c(12 to 15) <= "0101";
+						y(12 to 15) <= c(12 to 15);
+					elsif (c(12 to 15) = "0101") then
+						c(12 to 15) <= "0000";
+						y(12 to 15) <= c(12 to 15);
+					end if;
+ 
+				when 1 => 
+					if (c(8 to 11) = "1001") then
+						c(8 to 11) <= "0000";
+						y(8 to 11) <= c(8 to 11);
+					else
+						c(8 to 11) <= c(8 to 11) + 1;
+						y(8 to 11) <= c(8 to 11);
+					end if;
+ 
+				when 2 => 
+					if (c(4 to 7) = "1001") then
+						c(4 to 7) <= "0000";
+						y(4 to 7) <= c(4 to 7);
+					else
+						c(4 to 7) <= c(4 to 7) + 1;
+						y(4 to 7) <= c(4 to 7);
+					end if;
+ 
+				when 3 => 
+					if (c(0 to 3) = "1001") then
+						c(0 to 3) <= "0000";
+						y(0 to 3) <= c(0 to 3);
+					else
+						c(0 to 3) <= c(0 to 3) + 1;
+						y(0 to 3) <= c(0 to 3);
+					end if;
+ 
+				when others => null;
+			end case;
+		end if;
+		end if;
+	end process;
+ 
+	shiftare : process (enter,CLK,SW)
+	begin  
+		if (enter = '1' AND SW='0' and sw'last_value='1' AND CLK'EVENT AND CLK='1' and x ='1') then
+			shift <= shift + 1;
+			if (shift > 3) then
+				shift <= 0;
+			end if;
+		end if;	
+	end process;
+ 
+end architecture; 
+
+
+-- 8. Cristi
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity NUMARATOR_MOD4 is
+	port (
+			CLK: in std_logic; 
+			ENTER:in std_logic;
+			y: out std_logic_vector(0 to 1)
+		 );
+end entity;
+
+architecture arh_NUMARATOR_MOD4 of NUMARATOR_MOD4 is
+begin
+	process(CLK,ENTER)
+	variable s: std_logic_vector(0 to 1) := "00";
+	begin	
+		if (ENTER='1') then
+			if(clk'event and clk = '1') then
+				if(s = "11") then
+					s := "00";
+				else
+					s := s + 1;
+				end if;
+			end if;	
+		end if;
+		y <= s;
+	end process;
+end architecture;
+
+-- 9. Miruna
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL; 
+
+entity COMP_1000 is
+	port (
+			suma: in std_logic_vector(0 to 15);	
+			en: in std_logic;
+			mic: out std_logic;
+			egal: out std_logic;
+			mare: out std_logic
+		 );
+end entity;
+
+architecture arh_COMP_1000 of COMP_1000 is
+begin
+	process(suma, en)
+	begin	
+		if(en = '1') then
+			if(suma < "0001000000000000") then
+				mic <= '1';
+				egal <= '0';
+				mare <= '0';
+			elsif(suma = "0001000000000000") then
+				mic <= '0';
+				egal <= '1';
+				mare <= '0';
+			elsif(suma > "0001000000000000") then
+				mic <= '0';
+				egal <= '0';
+				mare <= '1';
+			end if;
+		elsif(en = '0') then
+			mic <= 'Z';
+			egal <= 'Z';
+			mare <= 'Z';
+		end if;
+	end process;
+end architecture;
+	
+
+-- 10. Miruna		
+library IEEE;
+use IEEE.STD_LOGIC_1164.all;
+use IEEE.STD_LOGIC_UNSIGNED.all;
+
+entity BCD_SUMATOR_4BITI is
+	port (
+		A : in std_logic_vector(0 to 3);
+		B : in std_logic_vector(0 to 3); 
+		EN : in std_logic;
+		CIN : in std_logic_vector(0 to 3);
+		SUM : out std_logic_vector(0 to 3);
+		COUT : out std_logic_vector(0 to 3)
+	);
+end BCD_SUMATOR_4BITI;
+
+architecture arh_BCD_SUMATOR_4BITI of BCD_SUMATOR_4BITI is
+	signal tmp : std_logic_vector(0 to 3);
+begin
+	tmp <= A + B + CIN;
+	process (tmp, A, B, en, CIN)
+	begin
+		if (en = '1') then
+			if (tmp > 9) then
+				SUM <= tmp + 6;
+				COUT <= "0001";
+			else
+				SUM <= tmp;
+				COUT <= "0000";
+			end if;
+		elsif (en = '0') then
+			SUM <= "ZZZZ";
+			COUT <= "ZZZZ";
+		end if;
+	end process;
+
+end architecture;
+
+
+-- 11. Miruna
+library IEEE;
+use IEEE.STD_LOGIC_1164.all;
+use IEEE.STD_LOGIC_UNSIGNED.all;
+
+entity BCD_SUMATOR_16BITI is
+	port (
+		A : in std_logic_vector(0 to 15);
+		B : in std_logic_vector(0 to 15);
+		CIN : in std_logic_vector(0 to 3);
+		EN : in std_logic;
+		SUM : out std_logic_vector(0 to 15)
+	);
+end entity;
+
+architecture arh_BCD_SUMATOR_16BITI of BCD_SUMATOR_16BITI is
+
+	component BCD_SUMATOR_4BITI is
+		port (
+			A : in std_logic_vector(0 to 3);
+			B : in std_logic_vector(0 to 3);
+			EN : in std_logic;
+			CIN : in std_logic_vector(0 to 3);
+			SUM : out std_logic_vector(0 to 3);
+			COUT : out std_logic_vector(0 to 3)
+		);
+	end component;
+	signal cin1, cin2, cin3 : std_logic_vector(0 to 3);
+	signal en1 : std_logic;
+begin
+	en1 <= '0' when (EN = '0') else
+	       '1' when (EN = '1');
+	v : BCD_SUMATOR_4BITI
+	port map(EN => en1, A => A(12 to 15), B => B(12 to 15), CIN => "0000", SUM => SUM(12 to 15), COUT => cin1);
+	w : BCD_SUMATOR_4BITI
+	port map(EN => en1, A => A(8 to 11), B => B(8 to 11), CIN => cin1, SUM => SUM(8 to 11), COUT => cin2);
+	x : BCD_SUMATOR_4BITI
+	port map(EN => en1, A => A(4 to 7), B => B(4 to 7), CIN => cin2, SUM => SUM(4 to 7), COUT => cin3);
+y : BCD_SUMATOR_4BITI
+port map(EN => en1, A => A(0 to 3), B => B(0 to 3), CIN => cin3, SUM => SUM(0 to 3));
+
+end architecture;
+
+-- 12. Cristi
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity COMPARATOR_SUMA is
+	port (
+			en: in std_logic;
+			s_crt: in std_logic_vector(0 to 15);
+			s_neces: in std_logic_vector(0 to 15);
+			soldOK: out std_logic
+		 );
+end entity;
+
+architecture arh_COMPARATOR_SUMA of COMPARATOR_SUMA is
+begin
+	process(s_crt, s_neces, en)
+	begin
+		if(en = '1') then
+			if(s_crt(0 to 3) > s_neces(0 to 3)) then
+				soldOK <= '1';
+			elsif(s_crt(0 to 3) = s_neces(0 to 3)) then
+				if(s_crt(4 to 7) > s_neces(4 to 7)) then
+					soldOK <= '1';
+				elsif(s_crt(4 to 7) = s_neces(4 to 7)) then
+					if(s_crt(8 to 11) > s_neces(8 to 11)) then
+						soldOK <= '1';
+					elsif(s_crt(8 to 11) = s_neces(8 to 11)) then
+						if(s_crt(12 to 15) > s_neces(12 to 15)) then
+							soldOK <= '1';
+						elsif(s_crt(12 to 15) = s_neces(12 to 15)) then
+							soldOK <= '1';
+						else 
+							soldOK <= '0';
+						end if;
+					else
+						soldOK <= '0';
+					end if;
+				else
+					soldOK <= '0';
+				end if;
+			else
+				soldOK <= '0';
+			end if;
+		elsif(en = '0') then
+			soldOK <= 'Z';
+		end if;
+	end process;
+end architecture;
+
+
+-- 13. Cristi si Miruna
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity DIVIZOR_DE_FRECVENTA is
+port (
+		 CLK: in std_logic;
+	     CLK0: out std_logic
+	 );
+end DIVIZOR_DE_FRECVENTA;
+
+architecture arh_DIVIZOR_DE_FRECVENTA of DIVIZOR_DE_FRECVENTA is
+	signal count: INTEGER range 0 to 499999 := 0;
+begin
+	Divide: process (CLK)
+	begin
+		if (CLK' event and CLK = '1') then
+			if (count = 499999) then
+				CLK0 <= '1';
+				count <= 0;		  
+			else
+				count <= count + 1;
+				CLK0 <= '0';		  
+			end if;
+		end if;
+	end process Divide;
+end;
+
+-- 14. Miruna
+library IEEE;
+use IEEE.std_logic_1164.all;
+
+entity REGISTRU_MEMORARE_4BITI is
+	port(
+			clk, clr,sw: in std_logic;
+			load: in std_logic_vector(0 to 3);
+			q: out std_logic_vector(0 to 3)
+		);
+end entity;
+
+architecture REGISTRU_MEMORARE_4BITI_COMPORT of REGISTRU_MEMORARE_4BITI is
+begin
+	process(clk, clr, load, sw)
+	variable v: std_logic_vector(0 to 3) := "0000";
+	begin
+		if(sw = '1') then
+			if(clr = '0') then
+				v := "0000";
+				q <= v;
+			elsif(clk'event AND clk = '1') then
+				v := load; 
+				q <= v;
+			end if;
+		end if;	
+		if (sw='0') then
+			q<=v;
+			end if;
+	end process;
+end architecture;
+
+
+-- 15. Cristi				
+library IEEE;
+use IEEE.std_logic_1164.all;
+
+entity REGISTRU_MEMORARE_2BITI is
+	port(
+			clk, clr, enter: in std_logic;
+			load: in std_logic_vector(0 to 1);
+			q: out std_logic_vector(0 to 1)
+		);
+end entity;
+
+architecture REGISTRU_MEMORARE_2BITI_COMPORT of REGISTRU_MEMORARE_2BITI is
+begin
+	process(clk, clr, load, enter)
+	variable v: std_logic_vector(0 to 1) := "00";
+	begin
+		if(enter = '1') then
+			if(clr = '0') then
+				v := "00";
+				q <= v;
+			elsif(clk'event AND clk = '1') then
+				v := load; 
+				q <= v;
+			end if;
+		end if;
+	end process;
+end architecture;
+
+-- 16. Miruna			
+library IEEE;
+use IEEE.std_logic_1164.all;
+
+entity REGISTRU_MEMORARE_1BIT is
+	port(
+			clk, clr, en: in std_logic;
+			q: out std_logic
+		);
+end entity;
+
+architecture REGISTRU_MEMORARE_1BIT_COMPORT of REGISTRU_MEMORARE_1BIT is
+signal x:std_logic:='0';
+begin
+	process(clk, clr, en)
+	variable v: std_logic := '0';
+	begin
+			if(clr = '1') then
+				v := '0';
+				q <= v;
+				x<='0';
+			elsif(clk'event AND clk = '1' and x='0' and en='1') then
+				v := en; 
+				x<='1';
+				q <= v;
+			end if;
+	end process;
+end architecture;
+
+-- 17. Miruna
+library IEEE;
+use IEEE.STD_LOGIC_1164.all;
+use IEEE.STD_LOGIC_UNSIGNED.all;
+use IEEE.NUMERIC_STD.all;
+
+entity COMPLEMENT_9 is
+	port (
+			x: in std_logic_vector(0 to 15);
+			en: in std_logic;
+			y: out std_logic_vector(0 to 15)
+		 );	
+end entity;
+
+architecture arh_COMPLEMENT_9 of COMPLEMENT_9 is
+begin
+	y(0 to 3) <= "1001" - x(0 to 3) when (en = '1')
+				 else "ZZZZ";
+	y(4 to 7) <= "1001" - x(4 to 7)when (en = '1')
+				 else "ZZZZ";
+	y(8 to 11) <= "1001" - x(8 to 11) when (en = '1')
+				 else "ZZZZ";
+	y(12 to 15) <= "1001" - x(12 to 15) when (en = '1')
+				 else "ZZZZ";
+end architecture;
+
+-- 18. Cristi
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+entity BISTABIL_D is
+    Port ( 
+		  	EN, CLK: in std_logic;
+		    Q: out std_logic
+		  );
+end entity;
+
+architecture arh_BISTABIL_D of BISTABIL_D is
+signal DATA: std_logic:='0';
+signal x:std_logic:='0';
+begin  
+	process(en,clk)
+	begin
+       if (clk'event and clk='1' and en='1' and x='0') then 
+		   Data<='1';
+		   x<='1';
+	end if;	  
+	end process;  
+	Q<=DATA;
+end architecture;
+
+-- 19. Miruna
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity DMUX_1_4_4biti is
+	port (
+			x: in std_logic_Vector(0 to 15);
+			s: in std_logic_vector(0 to 1);
+			y0: out std_logic_vector(0 to 3);
+			y1: out std_logic_vector( 0 to 3);
+			y2: out std_logic_vector(0 to 3);
+			y3: out std_logic_vector( 0 to 3)
+		 );	  
+end entity;
+
+architecture arh_DMUX_1_4_4biti of DMUX_1_4_4biti is 
+begin
+	process(x, s)
+	begin
+			if(s = "00") then
+				y0 <= x(12 to 15);
+				y1 <= "ZZZZ";
+				y2 <= "ZZZZ";
+				y3 <= "ZZZZ";
+			elsif(s = "01") then
+				y0 <= "ZZZZ";
+				y1 <= x(8 to 11);
+				y2 <= "ZZZZ";
+				y3 <= "ZZZZ"; 
+			elsif(s = "10") then
+				y0 <= "ZZZZ";
+				y1 <= "ZZZZ";
+				y2 <= x(4 to 7);
+				y3 <= "ZZZZ"; 
+			elsif(s = "11")	then
+				y0 <= "ZZZZ";
+				y1 <= "ZZZZ";
+				y2 <= "ZZZZ";
+				y3 <= x(0 to 3);
+			end if;
+	end process;
+end architecture;
+
+-- 20. Cristi
+library IEEE;
+use IEEE.STD_LOGIC_1164.all;
+use IEEE.STD_LOGIC_UNSIGNED.all;
+
+entity BCD_SCAZATOR_4B is
+	port (
+		A : in std_logic_vector(0 to 3);
+		B : in std_logic_vector(0 to 3);
+		CIN : in std_logic_vector(0 to 3);
+		en : in std_logic;
+		DIFF : out std_logic_vector(0 to 3);
+		COUT : out std_logic_vector(0 to 3)
+	);
+end entity;
+
+architecture arh_BCD_SCAZATOR_4B of BCD_SCAZATOR_4B is
+	signal T : std_logic_vector(0 to 3) := "0000";
+begin
+	T <= B + CIN;
+	process (A, B, T, en)
+	begin
+		if (en = '1') then
+			if (A < T) then
+				DIFF <= "1010" - (T - A);
+				COUT <= "0001";
+			else
+				DIFF <= A - T;
+				COUT <= "0000";
+			end if;
+		elsif (en = '0') then
+			DIFF <= "ZZZZ";
+			COUT <= "ZZZZ";
+		end if;
+	end process;
+end architecture;
+
+-- 21. Cristi
+library IEEE;
+use IEEE.STD_LOGIC_1164.all;
+
+entity BCD_SCAZATOR_8BITI is
+	port (
+		A : in std_logic_vector(0 to 7);
+		B : in std_logic_vector(0 to 7);
+		EN : in std_logic;
+		DIFF : out std_logic_vector(0 to 7)
+	);
+end entity;
+
+architecture arh_BCD_SCAZATOR_8BITI of BCD_SCAZATOR_8BITI is
+	signal cin1 : std_logic_vector(0 to 3);
+	signal en1 : std_logic;
+	component BCD_SCAZATOR_4B is
+		port (
+			A : in std_logic_vector(0 to 3);
+			B : in std_logic_vector(0 to 3);
+			CIN : in std_logic_vector(0 to 3);
+			en : in std_logic;
+			DIFF : out std_logic_vector(0 to 3);
+			COUT : out std_logic_vector(0 to 3)
+		);
+	end component;
+
+begin
+	en1 <= '0' when (EN = '0') else
+	       '1' when (EN = '1');
+	X : BCD_SCAZATOR_4B
+	port map(en => en1, A => A(4 to 7), B => B(4 to 7), CIN => "0000", DIFF => DIFF(4 to 7), COUT => cin1);
+	Y : BCD_SCAZATOR_4B
+	port map(en => en1, A => A(0 to 3), B => B(0 to 3), CIN => cin1, DIFF => DIFF(0 to 3));
+end architecture;
+
+-- 22. Cristi
+library ieee;
+use ieee.std_logic_1164.all;
+use work.all;
+
+entity BCD_SCAZATOR_16BITI is
+	port (
+		a : in std_logic_vector(0 to 15);
+		b : in std_logic_vector(0 to 15);
+		en : in std_logic;
+		sum : out std_logic_vector(0 to 15)
+	);
+end entity;
+
+architecture arh_BCD_SCAZATOR_16BITI of BCD_SCAZATOR_16BITI is
+	component BCD_SCAZATOR_4B is
+		port (
+			A : in std_logic_vector(0 to 3);
+			B : in std_logic_vector(0 to 3);
+			CIN : in std_logic_vector(0 to 3);
+			en : in std_logic;
+			DIFF : out std_logic_vector(0 to 3);
+			COUT : out std_logic_vector(0 to 3)
+		);
+	end component;
+
+	signal cin1, cin2, cin3 : std_logic_vector(0 to 3);
+	signal enable : std_logic;
+
+begin
+	enable <= '0' when (en = '0') else
+	          '1' when (en = '1');
+	x : BCD_SCAZATOR_4B
+	port map(en => enable, A => A(12 to 15), B => B(12 to 15), CIN => "0000", DIFF => sum(12 to 15), COUT => cin1);
+	y : BCD_SCAZATOR_4B
+	port map(en => enable, A => A(8 to 11), B => B(8 to 11), CIN => cin1, DIFF => sum(8 to 11), COUT => cin2);
+	z : BCD_SCAZATOR_4B
+	port map(en => enable, A => A(4 to 7), B => B(4 to 7), CIN => cin2, DIFF => sum(4 to 7), COUT => cin3);
+t : BCD_SCAZATOR_4B
+port map(en => enable, A => A(0 to 3), B => B(0 to 3), CIN => cin3, DIFF => sum(0 to 3));
+end architecture;
+
+-- 23. Miruna
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity NUMARATOR_MOD4_nou is
+	port (
+			CLK: in std_logic; 
+			ENTER:in std_logic;
+			y: out std_logic_vector(0 to 1)
+		 );
+end entity;
+
+architecture arh_NUMARATOR_MOD4_nou of NUMARATOR_MOD4_nou is
+begin
+	process(CLK,ENTER)
+	variable s: std_logic_vector(0 to 1) := "00";
+	begin	
+		if (ENTER='1') then
+			if(clk'event and clk = '1') then
+				if(s = "11") then
+					s := "00";
+				else
+					s := s + 1;
+				end if;
+			end if;	
+		end if;
+		y <= s;
+	end process;
+end architecture;
+
+-- 24. Miruna
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity NUMARATOR_MOD8 is
+	port (
+			CLK: in std_logic;
+			y: out std_logic_vector(0 to 2)
+		 );
+end entity;
+
+architecture arh_NUMARATOR_MOD8 of NUMARATOR_MOD8 is
+begin
+	process(CLK)
+	variable s: std_logic_vector(0 to 2) := "000";
+	begin
+		if(clk'event and clk = '1') then
+			if(s = "111") then
+				s := "000";
+			else
+				s := s + 1;
+			end if;
+		end if;
+		y <= s;
+	end process;
+end architecture;
+
+-- 25. Cristi
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+entity MEMORIE_MAGAZIE_BANCNOTE	is
+	port (
+			CLK: in std_logic;
+			A_RAM: in std_logic_vector(0 to 2);
+			WE: in std_logic;
+			I_RAM: in std_logic_vector(0 to 15);
+			CS_RAM: in std_logic;
+			D_RAM: out std_logic_vector(0 to 15)
+		 );
+end entity;
+
+architecture arh_MEMORIE_MAGAZIE_BANCNOTE of MEMORIE_MAGAZIE_BANCNOTE is			 
+type MEMORIE is array(0 to 7) of std_logic_vector(0 to 15);
+
+signal M: MEMORIE :=("0000000000000100", "0000000000001001", "0000000000010010", "0000000000110001", "0000000001010100", "0000000010000111", "0000000100000010", "0000000000000000");
+-- tip de bancnota:		  500 eur			  200 eur			   100 eur			    50 eur	            20 eur	            10 eur	            5 eur 		 	      -	
+-- bancnote existente:	   4					9					12					31					54					87				   102					  -
+
+begin
+	process (A_RAM, WE, I_RAM, CS_RAM)
+	begin
+		if(CS_RAM = '1') then
+			if(CLK'event and CLK = '1') then
+				if(WE = '0') then	-- CITESTE DE LA ARESA A_RAM
+					case A_RAM is
+						when "000" => D_RAM <= M(0);
+						when "001" => D_RAM <= M(1);
+						when "010" => D_RAM <= M(2);
+						when "011" => D_RAM <= M(3);
+						when "100" => D_RAM <= M(4);
+						when "101" => D_RAM <= M(5);
+						when "110" => D_RAM <= M(6);
+						when others => NULL;
+					end case;
+				elsif(WE = '1') then	-- SCRIE LA ADRESA A_RAM numarul de bancnote I_RAM
+					case A_RAM is
+						when "000" => M(0) <= I_RAM;
+						when "001" => M(1) <= I_RAM;
+						when "010" => M(2) <= I_RAM;
+						when "011" => M(3) <= I_RAM;
+						when "100" => M(4) <= I_RAM;
+						when "101" => M(5) <= I_RAM;
+						when "110" => M(6) <= I_RAM;
+						when others => NULL;
+					end case;
+				end if;
+			end if;
+		end if;
+	end process;
+end architecture;
+
+-- 26. Cristi
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL;
+use IEEE.std_logic_arith.all;
+
+entity ALGORITM is
+	port (
+			CLK: in std_logic;
+			EN: in std_logic;
+			RESET: in std_logic;
+			SUMA: in std_logic_vector(0 to 15);
+			BANCNOTA: out std_logic_vector(0 to 15)
+		 );
+end entity;
+
+architecture arh_ALGORITM of ALGORITM is
+
+	type vector_tipuri_bancnote is array(0 to 6) of std_logic_vector(0 to 15);
+	signal tip: vector_tipuri_bancnote := ("0000010100000000", "0000001000000000", "0000000100000000", "0000000001010000", "0000000000100000", "0000000000010000", "0000000000000101");
+	shared variable a: natural := 0;
+	shared variable i: natural := 0;
+	shared variable nr: std_logic_vector(0 to 3) := "0000";
+	
+begin
+	
+	process(EN, SUMA, RESET, CLK)
+	variable b, c: natural;
+	begin
+		if(EN = '1' and clk'event and clk = '1') then
+			nr := "0000";
+			c := conv_integer(SUMA(0 to 3)) * 1000 + conv_integer(SUMA(4 to 7)) * 100 + conv_integer(SUMA(8 to 11)) * 10 + conv_integer(SUMA(12 to 15));
+			b := conv_integer(tip(i)(0 to 3)) * 1000 + conv_integer(tip(i)(4 to 7)) * 100 + conv_integer(tip(i)(8 to 11)) * 10 + conv_integer(tip(i)(12 to 15));
+			while (a + b <= c) loop
+					a := a + b;
+					nr := nr + 1;
+			end loop;
+			case i is
+				when 0 => 
+				BANCNOTA(0 to 11) <= "010100000000";
+				
+				when 1 => 
+				BANCNOTA(0 to 11) <= "001000000000";
+				
+				when 2 => 
+				BANCNOTA(0 to 11) <= "000100000000";
+				
+				when 3 => 
+				BANCNOTA(0 to 11) <= "000001010000";
+				
+				when 4 => 
+				BANCNOTA(0 to 11) <= "000000100000"; 
+				
+				when 5 => 
+				BANCNOTA(0 to 11) <= "000000010000";
+				
+				when 6 => 
+				BANCNOTA(0 to 11) <= "000000000101";
+				
+				when others => NULL;
+			end case; 
+			
+			BANCNOTA(12 to 15) <= nr;
+			if(i < 6) then
+				i := i+1;
+			elsif(i = 6) then
+				i := 0;
+				a := 0;
+			end if;
+		end if;
+	end process;
+	
+end architecture;
+
+-- continuare de la entity ATM (interfata ATM-ului) Cristi si Miruna	
+architecture arh_ATM of ATM is
+
+signal ok: std_logic := '0';  
+signal scoatere_card:std_logic := '0';
+signal ok_enter_pin:std_logic := '0';
+signal pin:std_logic_vector(0 to 3) := "0000";  
+signal mare:std_logic := '0';
+signal mic:std_logic := '0';
+signal egal:std_logic := '0';
+signal y0, y1,y2,y3:std_logic:='0';
+signal semnal_interogare:std_logic:='0';
+signal poarta_sau_clear_interogare:std_logic:='0';
+signal poarta_sau_clear_depunere:std_logic:='0'; 
+signal semnal_depunere:std_logic:='0';
+signal semnal_extragere:std_logic:='0';
+signal poarta_sau_clear_scoatere_card:std_logic:='0';
+signal mode:std_logic:='0';	
+signal semnal:std_logic_vector(0 to 1):="00";  
+signal suma:std_logic_vector(0 to 15):="0000000000000000";
+signal poarta_sau_clear_extragere: std_logic := '0';
+signal semnal_dep:std_logic_vector(0 to 15):="0000000000000000";
+signal semnal_extr:std_logic_vector(0 to 15):="0000000000000000";
+signal semnal_sw:std_logic_vector(0 to 3):="0000";	
+signal clear_registru:std_logic:='0';
+signal semnal_iesire_registru_4_1: std_logic_vector(0 to 3) := "0000";
+signal semnal_iesire_registru_4_2: std_logic_vector(0 to 3) := "0000";
+signal semnal_iesire_registru_4_3: std_logic_vector(0 to 3) := "0000";
+signal semnal_iesire_registru_4_4: std_logic_vector(0 to 3) := "0000";
+signal numar:std_logic_vector(0 to 15):="0000000000000000";
+signal en_sumator:std_logic:='0';
+signal citire_mem:std_logic:='0'; 
+signal CS:std_logic:='0';
+signal CS_scadere:std_logic:='0';
+signal suma_din_mem:std_logic_vector(0 to 15):="0000000000000000";
+signal suma_depunere:std_logic_vector(0 to 15):="0000000000000000";
+signal cout:std_logic:='0';
+signal suma_noua_dep:std_logic_vector(0 to 15):="0000000000000000";
+signal semnal_scazator_algoritm:std_logic_vector(0 to 15):="0000000000000000";	
+signal mic_1000:std_logic:='0';
+signal mare_1000:std_logic:='0';
+signal egal_1000:std_logic:='0'; 
+signal en_comparator_1000:std_logic:='0';
+signal sold_ok:std_logic:='0'; 
+signal bancnota:std_logic_vector(0 to 15):="0000000000000000";
+signal numar_3biti:std_logic_vector(0 to 2):="000";
+signal afisor:std_logic_vector (0 to 3):="0000";
+signal interogare:std_logic:='1';
+signal semnal_enable: std_logic := '0';
+signal an_semnal: std_logic_vector(0 to 3) := "0000";
+signal semnal_1: std_logic_vector(0 to 1):= "00";
+signal an_semnal_1: std_logic_vector(0 to 3) := "0000";
+signal semnal_num: std_logic_vector(0 to 1) := "00";
+begin							   
+	A: entity work.REGISTRU_MEMORARE_1BIT port map (CLK => CLK,en => B0_int_card,q=>ok,clr=>scoatere_card);	
+	B: entity work.MEMORIE_PIN port map (A_ROM=>SW(0 to 1), CS_ROM=>ok, D_ROM=>pin); 
+	C:entity work.BISTABIL_D port map(clk=>clk,en=>B1_ENTER, q=>ok_enter_pin);
+	D: entity work.COMPARATOR_4B port map(clk=>clk, a=>pin, b=>sw(2 to 5), en=>ok_enter_pin,mare=>mare,mic=>mic,egal=>egal);
+		
+    	LD0_card_introd<=ok;
+		LD1_pin_gresit<=mare or mic;
+		
+	E: entity work.DMUX_1_4 port map (en=>egal,x=>egal,s=>sw(6 to 7),y0=>y0,y1=>y1,y2=>y2,y3=>y3);
+	F:entity work.REGISTRU_MEMORARE_1BIT port map (clk=>B1_ENTER, en=>y0,clr=>poarta_sau_clear_interogare,q=>semnal_interogare);
+		
+		poarta_sau_clear_interogare<=y2 or y3;
+		LD2_interogare<=semnal_interogare;	
+	
+	G:entity work.REGISTRU_MEMORARE_1BIT port map (clk=>B1_ENTER,en=>y1,clr=>poarta_sau_clear_scoatere_card,q=>scoatere_card);	
+	H:entity work.REGISTRU_MEMORARE_1BIT port map (clk=>B1_ENTER, en=>y2,clr=>poarta_sau_clear_depunere,q=>semnal_depunere);
+		
+		poarta_sau_clear_depunere<=y0 or y3;
+		LD3_depunere<=semnal_depunere; 	   
+		
+	I:entity work.REGISTRU_MEMORARE_1BIT port map (clk=>B1_ENTER, en=>y3,clr=>poarta_sau_clear_extragere,q=>semnal_extragere); 
+		
+		poarta_sau_clear_extragere<=y0 or y2;
+		LD4_retragere<=semnal_extragere;  
+		mode<=semnal_extragere or semnal_depunere; 
+		
+    J: entity work.NUMARATOR_SUMA port map( SW=>SW(8), MODE=>mode,CLK=>CLK,Enter=>B1_ENTER,y=>suma);	
+	K:entity work.NUMARATOR_MOD4_nou port map (clk=>B1_ENTER, enter=>mode,y=>semnal); 
+	L: entity work.DMUX_1_2	port map(S=>SW(7), x=>suma,y0=>semnal_dep,y1=>semnal_extr);
+	M1: entity work.DMUX_1_4_4biti port map(s=>semnal, x=>suma, y0=>suma(12 to 15), y1=>suma(8 to 11), y2=>suma(4 to 7), y3=>suma(0 to 3));
+    N: entity work.DMUX_1_4 port map (s=>semnal, x=>sw(8),en=>'1', y0=>semnal_sw(3), y1=>semnal_sw(2), y2=>semnal_sw(1), y3=>semnal_sw(0));
+		
+		en_sumator<='1' when (B2_CONFIRM='1' and semnal_depunere='1'); 
+	    citire_mem<= not(semnal_depunere or semnal_interogare or semnal_extragere);
+		CS<=semnal_depunere or semnal_interogare or semnal_extragere;
+
+	O: entity work.MEMORIE_SOLD port map (A_RAM=>SW(0 TO 1),WE=>citire_mem,I_RAM=>"0000000000000000",CS_RAM=>CS,D_RAM=>suma_din_mem);
+	P: entity  work.BCD_SUMATOR_16BITI port map (en=>en_sumator, a=>suma_din_mem, b=>suma, cin=>"0000",sum=>suma_depunere); 
+	Q: entity work.MEMORIE_SOLD port map ( A_RAM=>SW(0 TO 1), WE=>CS, CS_RAM=>CS ,I_RAM=>suma_depunere, D_ram=>open);
+		
+		en_comparator_1000<='1' when (B2_CONFIRM='1' and semnal_extragere='1');	  
+		
+	R: entity work.COMP_1000 port map (suma=>suma, en=>en_comparator_1000,egal=>egal_1000, mare=>mare_1000, mic=>mic_1000);		
+		
+		LD5_suma_max_dep<=EGAL_1000 or mare_1000;  
+		CS_SCADERE<=semnal_extragere when en_comparator_1000='1';  
+		
+    S: entity work.MEMORIE_SOLD port map (A_RAM=>SW(0 TO 1), WE=>citire_mem,I_RAM=>"0000000000000000",CS_RAM=>CS, D_RAM=>suma_din_mem);
+	T: entity work.COMPARATOR_SUMA port map (en=>mic_1000, s_crt=>suma_din_mem, s_neces=>suma,soldOK=>sold_ok);		
+		
+		LD6_sold_insuf<=NOT SOLD_OK;  
+		
+	U: entity work.BCD_SCAZATOR_16BITI port map (A => suma_din_mem, B =>suma , en =>sold_ok, sum => semnal_scazator_algoritm);
+    V:entity work.MEMORIE_SOLD port map (A_RAM=>SW(0 TO 1), WE=>CS, CS_RAM=>CS, I_RAM=>semnal_scazator_algoritm, D_RAM=>open);
+	W: entity work.ALGORITM port map (CLK=>CLK, en=>sold_ok,reset=>poarta_sau_clear_extragere,suma=>suma, bancnota=>bancnota);
+	X:entity work.NUMARATOR_MOD4 port map (clk => clk, enter => CS, y => semnal_num); 
+		
+		numar <= suma_din_mem when (semnal_num = "00");
+		numar <= suma when (semnal_num = "10");
+		numar <= suma when (semnal_num= "11");
+		numar <="ZZZZZZZZZZZZZZZZ" when (semnal_num = "01");
+	
+	Y: entity work.BCD_7SEGM port map (clk => clk, s => semnal_num, sel => sw(6 to 7), a_to_g => cat, an => an, x => numar);
+
+end architecture;
